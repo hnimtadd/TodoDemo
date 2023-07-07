@@ -1,0 +1,211 @@
+version: "3"
+services:
+
+  server:
+    image: gomongo
+    container_name: server
+    build: ./app
+    ports:
+      - 3000:3000
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      mongo2:
+        condition: service_healthy
+      es01:
+        condition: service_healthy
+      es02:
+        condition: service_healthy
+    networks:
+      - elastic-net
+    restart: on-failure
+
+  mongo-setup:
+    image: mongo:4.2
+    networks:
+      - elastic-net
+    container_name: mongo-setup
+    volumes:
+      - ./volumes/.docker/scripts/mongosetup.sh:/scripts/mongosetup.sh
+    entrypoint: ["bash", "/scripts/mongosetup.sh"]
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    depends_on:
+      - mongo1
+      - mongo2
+
+  mongo1:
+    image: mongo:4.2
+    hostname: 'mongo1'
+    command: ["-f", "/etc/mongod.conf", "--port", "30001", "--keyFile", "/auth/file.key", "--replSet", "${MONGO_REPLICA_SET_NAME}", "--bind_ip_all"]
+    networks:
+      - elastic-net
+    container_name: mongo1
+    expose:
+      - 30001
+    ports:
+      - 30001:30001
+    volumes:
+      - ./volumes/.docker/init.d/:/docker-entrypoint-initdb.d/
+      - ./volumes/mongo1/data/:/data/db/
+      - ./volumes/.docker/mongod.conf:/etc/mongod.conf
+      - ./volumes/.docker/file.key:/auth/file.key
+    restart: on-failure
+    healthcheck:
+      test: echo 'rs.status().ok' | mongo admin --port 30001 -u $${MONGO_INITDB_ROOT_USERNAME} -p $${MONGO_INITDB_ROOT_PASSWORD} --quiet | grep 1
+      interval: 10s
+      start_period: 60s
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+
+  mongo2:
+    image: mongo:4.2
+    command: ["-f", "/etc/mongod.conf", "--port", "30002", "--keyFile", "/auth/file.key", "--replSet", "${MONGO_REPLICA_SET_NAME}", "--bind_ip_all"]
+    networks:
+      - elastic-net
+    container_name: mongo2
+    expose:
+      - 30002
+    ports:
+      - 30002:30002
+    volumes:
+      - ./volumes/.docker/init.d/:/docker-entrypoint-initdb.d/
+      - ./volumes/mongo2/data/:/data/db/
+      - ./volumes/.docker/mongod.conf:/etc/mongod.conf
+      - ./volumes/.docker/file.key:/auth/file.key
+    restart: always
+    healthcheck:
+      test: echo 'rs.status().ok' | mongo admin --port 30002 -u $${MONGO_INITDB_ROOT_USERNAME} -p $${MONGO_INITDB_ROOT_PASSWORD} --quiet | grep 1
+      interval: 10s
+      start_period: 60s
+    env_file:
+      - .env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    depends_on:
+      - mongo1
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.1
+    container_name: es01
+    environment:
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - elastic-net
+    ports:
+      - 9200:9200
+    volumes:
+      - type: bind
+        source: $PWD/volumes/es01/config/elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+      - ./volumes/es01/data:/usr/share/elasticsearch/data
+      - ./volumes/es01/log:/usr/share/elasticsearch/log
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10K"
+        max-file: "10"
+    healthcheck:
+      test: curl -s http://es01:9200/_cluster/health >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: on-failure
+
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.1
+    container_name: es02
+    environment:
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - elastic-net
+
+    volumes:
+      - ./volumes/es02/data:/usr/share/elasticsearch/data
+      - ./volumes/es02/log:/usr/share/elasticsearch/log
+      - type: bind
+        source: $PWD/volumes/es02/config/elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10K"
+        max-file: "10"
+    healthcheck:
+      test: curl -s http://es02:9200/_cluster/health >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: on-failure
+
+  # monstache:
+  #   image: rwynn/monstache:6.7.11
+  #   container_name: monstache
+  #   working_dir: /app
+  #   command: -f ./monstache.config.toml
+  #   depends_on:
+  #     mongo1:
+  #       condition: service_healthy
+  #     es01:
+  #       condition: service_healthy
+  #     es02:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./volumes/monstache/config/config.toml:/app/monstache.config.toml
+  #     - ./volumes/monstache/filter:/app/filter/
+  #     - ./volumes/monstache/scripts:/app/scripts/
+  #     - ./volumes/monstache/log/:/app/logs/
+  #   networks:
+  #     - elastic-net
+  #   ports:
+  #     - "8080:8080"
+  #   healthcheck:
+  #     test: "wget -q -O - http://localhost:8080/healthz"
+  #     interval: 10s
+  #     timeout: 30s
+  #     retries: 300
+  #   restart: unless-stopped
+
+  logstash:
+    build:
+      context: .
+      dockerfile: Dockerfile-logstash
+    container_name: logstash
+    depends_on:
+      mongo1:
+        condition: service_healthy
+      es01:
+        condition: service_healthy
+      es02:
+        condition: service_healthy
+    networks:
+      - elastic-net
+    volumes:
+      - ./volumes/logstash/metadata:/usr/share/logstash/data/plugins/inputs/jdbc/
+      - ./volumes/logstash/pipeline/:/usr/share/logstash/pipeline/
+      - ./volumes/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./volumes/logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+      - ./volumes/logstash/config/queries/:/usr/share/logstash/config/queries/
+      - ./data/Mongo:/usr/share/logstash/jdbcbin
+    restart: always
+
+networks:
+  elastic-net:
+    driver: bridge
