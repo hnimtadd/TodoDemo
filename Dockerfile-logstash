@@ -1,0 +1,2 @@
+FROM docker.elastic.co/logstash/logstash:8.8.1 as logstash
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint"]
