@@ -1,4 +1,5 @@
 .env
-data/
-volumes/
-app/localhost*
+**/data
+**/log
+app/localhost**
+**/*.key

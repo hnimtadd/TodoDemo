@@ -1,6 +1,5 @@
 version: "3"
 services:
-
   server:
     image: gomongo
     container_name: server
@@ -27,7 +26,7 @@ services:
     container_name: mongo-setup
     volumes:
       - ./volumes/.docker/scripts/mongosetup.sh:/scripts/mongosetup.sh
-    entrypoint: ["bash", "/scripts/mongosetup.sh"]
+    entrypoint: [ "bash", "/scripts/mongosetup.sh" ]
     env_file:
       - .env
     environment:
@@ -39,8 +38,19 @@ services:
 
   mongo1:
     image: mongo:4.2
-    hostname: 'mongo1'
-    command: ["-f", "/etc/mongod.conf", "--port", "30001", "--keyFile", "/auth/file.key", "--replSet", "${MONGO_REPLICA_SET_NAME}", "--bind_ip_all"]
+    hostname: "mongo1"
+    command:
+      [
+        "-f",
+        "/etc/mongod.conf",
+        "--port",
+        "30001",
+        "--keyFile",
+        "/auth/file.key",
+        "--replSet",
+        "${MONGO_REPLICA_SET_NAME}",
+        "--bind_ip_all"
+      ]
     networks:
       - elastic-net
     container_name: mongo1
@@ -67,7 +77,18 @@ services:
 
   mongo2:
     image: mongo:4.2
-    command: ["-f", "/etc/mongod.conf", "--port", "30002", "--keyFile", "/auth/file.key", "--replSet", "${MONGO_REPLICA_SET_NAME}", "--bind_ip_all"]
+    command:
+      [
+        "-f",
+        "/etc/mongod.conf",
+        "--port",
+        "30002",
+        "--keyFile",
+        "/auth/file.key",
+        "--replSet",
+        "${MONGO_REPLICA_SET_NAME}",
+        "--bind_ip_all"
+      ]
     networks:
       - elastic-net
     container_name: mongo2

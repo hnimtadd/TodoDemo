@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package esmongo;
+
+option go_package = "./protoc";
+
+message AddTodoRequest {
+  string content = 1;
+  string source = 2;
+  string size = 3;
+  string format = 4;
+}
+
+message Todo {
+  string id = 1;
+  string content = 2;
+  string last_update = 3;
+  TodoMeta metadata = 4;
+}
+
+message TodoMeta {
+  string source = 1;
+  string size = 2;
+  string format = 3;
+}
+
+message AddTodoResponse{
+  Todo result = 1;
+}
+
+message GetTodosRequest{
+  int32 size = 1;
+  int32 offset = 2;
+}
+message GetTodosResponse {
+  repeated Todo results = 1;
+}
+
+message DeleteTodoRequest{
+  string id = 1;
+}
+message DeleteTodoResponse{
+  string result = 1;
+}
+message FailResponse {
+  int32 code = 1;
+  string msg = 2;
+}
+service TodosService {
+  rpc AddTodo(AddTodoRequest) returns (AddTodoResponse);
+  rpc GetTodos(GetTodosRequest) returns (GetTodosResponse);
+  rpc DeleteTodo(DeleteTodoRequest) returns (DeleteTodoResponse);
+}

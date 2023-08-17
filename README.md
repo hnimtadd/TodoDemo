@@ -16,4 +16,30 @@ openssl genrsa -out localhost.key 2048
 openssl ecparam -genkey -name secp384r1 -out localhost.key
 openssl req -new -x509 -sha256 -key localhost.key -out localhost.crt -days 3650
 ```
+Run local:
 Run ```go run main.go```, server will serve with port ```PORT```  from .env file
+
+Run with docker:
+Docker-compose file already define in root directory
+Run: ```docker-compose up -d```
+Please checkout sample .env file to configure with your configuraton
+Volumes
+```
+.
+├── es01
+│   ├── config
+│   ├── data
+│   └── log
+├── es02
+│   ├── config
+│   ├── data
+│   └── log
+├── logstash
+│   ├── config
+│   ├── metadata
+│   └── pipeline
+├── mongo1
+│   └── data
+└── mongo2
+    └── data
+```
