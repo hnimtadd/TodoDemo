@@ -3,3 +3,4 @@
 **/log
 app/localhost**
 **/*.key
+volumes/**
